@@ -3,6 +3,7 @@ from typing import Optional, Union, Any, List, Dict
 import numpy as np
 import json
 from loguru import logger
+from opencc import OpenCC
 
 from ..message_handler import message_handler
 from .types import WebSocketSend, BroadcastContext
@@ -13,6 +14,9 @@ from ..asr.asr_interface import ASRInterface
 from ..live2d_model import Live2dModel
 from ..tts.tts_interface import TTSInterface
 from ..utils.stream_audio import prepare_audio_payload
+
+# Convert ASR output (e.g. SenseVoice emits Simplified Chinese) to Taiwan Traditional Chinese
+_s2twp = OpenCC("s2twp")
 
 
 # Convert class methods to standalone functions
@@ -150,7 +154,7 @@ async def process_user_input(
     """Process user input, converting audio to text if needed"""
     if isinstance(user_input, np.ndarray):
         logger.info("Transcribing audio input...")
-        input_text = await asr_engine.async_transcribe_np(user_input)
+        input_text = _s2twp.convert(await asr_engine.async_transcribe_np(user_input))
         await websocket_send(
             json.dumps({"type": "user-input-transcription", "text": input_text})
         )
