@@ -3,13 +3,14 @@ import json
 from uuid import uuid4
 import numpy as np
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, UploadFile, File, Response
+from fastapi import APIRouter, WebSocket, UploadFile, File, Response, Request
 from starlette.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
 from .proxy_handler import ProxyHandler
+from .claude_code_bridge import dispatch_event
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
@@ -41,6 +42,18 @@ def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
             logger.error(f"Error in WebSocket connection: {e}")
             await ws_handler.handle_disconnect(client_uid)
             raise
+
+    @router.post("/claude-code/event")
+    async def claude_code_event(request: Request):
+        """Receive a Claude Code hook payload and let the character announce it"""
+        if request.client is None or request.client.host not in ("127.0.0.1", "::1"):
+            return JSONResponse({"error": "localhost only"}, status_code=403)
+        try:
+            event = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+        notified = dispatch_event(ws_handler, event)
+        return {"notified": notified}
 
     return router
 

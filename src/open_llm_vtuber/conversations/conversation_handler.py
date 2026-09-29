@@ -32,7 +32,15 @@ async def handle_conversation_trigger(
     """Handle triggers that start a conversation"""
     metadata = None
 
-    if msg_type == "ai-speak-signal":
+    if msg_type == "ai-speak-signal" and data.get("prompt"):
+        # Proactive speak with a caller-provided prompt (e.g. Claude Code events)
+        user_input = data["prompt"]
+        metadata = {
+            "proactive_speak": True,
+            "skip_memory": True,
+            "skip_history": True,
+        }
+    elif msg_type == "ai-speak-signal":
         try:
             # Get proactive speak prompt from config
             prompt_name = "proactive_speak_prompt"
